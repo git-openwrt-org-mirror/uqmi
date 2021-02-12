@@ -24,6 +24,37 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define CEILDIV(x,y) (((x) + (y) - 1) / (y))
 
+static struct  {
+    QmiWmsStorageType storage_type;
+    QmiWmsMessageMode message_mode;
+} _wms_settings;
+
+#define cmd_wms_set_storage_cb no_cb
+static enum qmi_cmd_result
+cmd_wms_set_storage_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
+{
+    _wms_settings.storage_type = QMI_WMS_STORAGE_TYPE_UIM;
+    if (arg != NULL) {
+        if (arg[0] == 'M' || arg[0] == 'm') {
+            _wms_settings.message_mode = QMI_WMS_STORAGE_TYPE_NV;
+        }
+    }
+    return QMI_CMD_DONE;
+}
+
+#define cmd_wms_set_mode_cb no_cb
+static enum qmi_cmd_result
+cmd_wms_set_mode_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
+{
+    _wms_settings.message_mode = QMI_WMS_MESSAGE_MODE_GSM_WCDMA;
+    if (arg != NULL) {
+        if (arg[0] == 'C' || arg[0] == 'c') {
+            _wms_settings.message_mode = QMI_WMS_MESSAGE_MODE_CDMA;
+        }
+    }
+    return QMI_CMD_DONE;
+}
+
 static void cmd_wms_list_messages_cb(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg)
 {
 	struct qmi_wms_list_messages_response res;
@@ -41,8 +72,8 @@ static void cmd_wms_list_messages_cb(struct qmi_dev *qmi, struct qmi_request *re
 static enum qmi_cmd_result
 cmd_wms_list_messages_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
 {
-	static struct qmi_wms_list_messages_request mreq = {
-		QMI_INIT(storage_type, QMI_WMS_STORAGE_TYPE_UIM),
+	struct qmi_wms_list_messages_request mreq = {
+		QMI_INIT(storage_type, _wms_settings.storage_type),
 		QMI_INIT(message_tag, QMI_WMS_MESSAGE_TAG_TYPE_MT_NOT_READ),
 	};
 
@@ -292,9 +323,9 @@ cmd_wms_delete_message_prepare(struct qmi_dev *qmi, struct qmi_request *req, str
 		return QMI_CMD_EXIT;
 	}
 
-	static struct qmi_wms_delete_request mreq = {
-		QMI_INIT(memory_storage, QMI_WMS_STORAGE_TYPE_UIM),
-		QMI_INIT(message_mode, QMI_WMS_MESSAGE_MODE_GSM_WCDMA),
+	struct qmi_wms_delete_request mreq = {
+		QMI_INIT(memory_storage, _wms_settings.storage_type),
+		QMI_INIT(message_mode, _wms_settings.message_mode),
 	};
 
 	mreq.set.memory_index = 1;
@@ -443,11 +474,11 @@ error:
 static enum qmi_cmd_result
 cmd_wms_get_message_prepare(struct qmi_dev *qmi, struct qmi_request *req, struct qmi_msg *msg, char *arg)
 {
-	static struct qmi_wms_raw_read_request mreq = {
+	struct qmi_wms_raw_read_request mreq = {
 		QMI_INIT_SEQUENCE(message_memory_storage_id,
-			.storage_type = QMI_WMS_STORAGE_TYPE_UIM,
+			.storage_type = _wms_settings.storage_type,
 		),
-		QMI_INIT(message_mode, QMI_WMS_MESSAGE_MODE_GSM_WCDMA),
+		QMI_INIT(message_mode, _wms_settings.message_mode),
 	};
 	char *err;
 	int id;
